@@ -19,6 +19,12 @@ It runs in two steps:
 
 **It never deletes or edits anything.** Your original threads stay where they are. It's also safe to run again, because replies it has already posted are skipped.
 
+## ⚠️ Before you use it
+
+- **It's only been tested on one small workspace.** I built it for my own team's ClickUp. It hasn't been tested on large workspaces, other plans, or unusual setups. Back up first and start with a single comment (see [Usage](#usage)).
+- **The new comments are dated today, so their original order is lost.** ClickUp doesn't let you set a comment's date, so each unthreaded reply shows up as a brand-new comment at the time you run the tool. It won't sit next to the comment it replied to. The original date and author are written at the top of each new comment, but the task's comment list itself will be out of order.
+- **The new comments are posted from your account.** They come from whoever owns the API token, not the original authors. The original author's name is included in the comment text.
+
 ## What you need
 
 - PHP 8.0 or newer, with the `pdo_sqlite` extension (most PHP installs include it)
