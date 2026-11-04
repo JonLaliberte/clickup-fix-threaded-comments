@@ -49,7 +49,12 @@ class AttachmentManager
         if (empty($url)) {
             throw new \RuntimeException("Empty URL provided for attachment download");
         }
-        
+
+        // Attachment URLs come from comment content, which any workspace member
+        // can control. Only fetch from ClickUp's own hosts so a crafted URL can't
+        // make this tool read internal network resources and re-upload them.
+        self::assertAllowedUrl($url);
+
         // Sanitize filename
         $sanitizedFilename = $this->sanitizeFilename($originalFilename);
         $localFilename = "{$taskId}-{$commentId}-{$sanitizedFilename}";
@@ -61,17 +66,75 @@ class AttachmentManager
                 'sink' => $localPath,
                 'headers' => [
                     'User-Agent' => 'ClickUp-Comment-Dethreader/1.0'
-                ]
+                ],
+                'allow_redirects' => [
+                    'max' => 5,
+                    'protocols' => ['https'],
+                    'on_redirect' => function ($request, $response, $uri) {
+                        self::assertAllowedUrl((string) $uri);
+                    },
+                ],
             ]);
-            
+
             if ($response->getStatusCode() !== 200) {
                 throw new \RuntimeException("Failed to download attachment: HTTP {$response->getStatusCode()}");
             }
-            
+
             return $localPath;
         } catch (GuzzleException $e) {
-            throw new \RuntimeException("Failed to download attachment: " . $e->getMessage());
+            if (file_exists($localPath)) {
+                @unlink($localPath);
+            }
+            throw new \RuntimeException("Failed to download attachment: " . self::redactUrls($e->getMessage()));
         }
+    }
+
+    /** Host suffixes ClickUp serves attachments from. */
+    private const ALLOWED_HOST_SUFFIXES = ['clickup.com', 'clickup-attachments.com'];
+
+    /**
+     * Reject anything that isn't an https URL on a ClickUp host resolving to a public IP.
+     *
+     * @throws \RuntimeException
+     */
+    public static function assertAllowedUrl(string $url): void
+    {
+        $parts = parse_url($url);
+        $scheme = strtolower($parts['scheme'] ?? '');
+        $host = strtolower(rtrim($parts['host'] ?? '', '.'));
+
+        if ($scheme !== 'https' || $host === '' || isset($parts['user']) || isset($parts['port'])) {
+            throw new \RuntimeException("Refusing to download attachment from non-ClickUp URL");
+        }
+
+        $allowed = false;
+        foreach (self::ALLOWED_HOST_SUFFIXES as $suffix) {
+            if ($host === $suffix || str_ends_with($host, '.' . $suffix)) {
+                $allowed = true;
+                break;
+            }
+        }
+        if (!$allowed) {
+            throw new \RuntimeException("Refusing to download attachment from non-ClickUp host: {$host}");
+        }
+
+        $ips = gethostbynamel($host) ?: [];
+        if (empty($ips)) {
+            throw new \RuntimeException("Could not resolve attachment host: {$host}");
+        }
+        foreach ($ips as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+                throw new \RuntimeException("Refusing to download attachment from private address for host: {$host}");
+            }
+        }
+    }
+
+    /**
+     * Strip query strings (which can carry signed-URL tokens) from any URLs in a message.
+     */
+    public static function redactUrls(string $message): string
+    {
+        return preg_replace('~(https?://[^\s?#"\']+)[?#][^\s"\']*~i', '$1?…', $message);
     }
 
     /**

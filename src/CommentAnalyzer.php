@@ -79,7 +79,7 @@ class CommentAnalyzer
                                         $localPath
                                     );
                                 } catch (\Exception $e) {
-                                    echo "        Warning: Failed to download attachment {$attachment['filename']}: " . $e->getMessage() . "\n";
+                                    echo "        Warning: Failed to download attachment {$attachment['filename']}: " . AttachmentManager::redactUrls($e->getMessage()) . "\n";
                                 }
                                 
                                 // Store attachment in database
@@ -236,7 +236,9 @@ class CommentAnalyzer
                         $allAttachments[] = $localPath;
                         $unthreadText .= "📎 Attachment: {$attachment['filename']} (downloaded as: " . basename($localPath) . ")\n";
                     } catch (\Exception $e) {
-                        $unthreadText .= "⚠️ Failed to download attachment {$attachment['filename']}: " . $e->getMessage() . "\n";
+                        // Keep error details local; the comment text is posted to ClickUp.
+                        echo "        Warning: Failed to download attachment {$attachment['filename']}: " . AttachmentManager::redactUrls($e->getMessage()) . "\n";
+                        $unthreadText .= "⚠️ Attachment {$attachment['filename']} could not be copied.\n";
                     }
                 }
             } elseif (!empty($attachments)) {
