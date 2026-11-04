@@ -1,0 +1,29 @@
+{
+    "name": "jonlaliberte/clickup-comment-dethreader",
+    "description": "Unofficial CLI tool that backs up threaded ClickUp comments and re-posts the replies as top-level comments",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jonathan Laliberte"
+        }
+    ],
+    "require": {
+        "php": ">=8.0",
+        "ext-pdo_sqlite": "*",
+        "vlucas/phpdotenv": "^5.5",
+        "guzzlehttp/guzzle": "^7.0",
+        "symfony/console": "^6.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ClickUpCommentDethreader\\": "src/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "scripts": {
+        "start": "php src/main.php"
+    }
+}
